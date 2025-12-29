@@ -7,6 +7,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -49,18 +52,16 @@ jobs:
       run: |
         echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
         echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-        APP_NAME=$(grep '"name"' package.json | head -1 | cut -d'"' -f4)
-        echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
     
     - name: Rename APK
       run: |
         mv android/app/build/outputs/apk/debug/app-debug.apk \
-           android/app/build/outputs/apk/debug/${{ steps.version.outputs.app_name }}-${{ steps.version.outputs.date }}.apk
+           android/app/build/outputs/apk/debug/${{ github.event.repository.name }}-${{ steps.version.outputs.date }}.apk
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.app_name }}-debug
+        name: ${{ github.event.repository.name }}-debug
         path: android/app/build/outputs/apk/debug/*.apk
         retention-days: 7
     
@@ -74,5 +75,3 @@ jobs:
         files: android/app/build/outputs/apk/debug/*.apk
         draft: false
         prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
