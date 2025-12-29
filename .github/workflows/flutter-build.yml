@@ -1,0 +1,66 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build APK
+      run: flutter build apk --debug
+    
+    - name: Get version info
+      id: version
+      run: |
+        echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        APP_NAME=$(grep 'name:' pubspec.yaml | head -1 | awk '{print $2}')
+        echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+    
+    - name: Rename APK
+      run: |
+        mv build/app/outputs/flutter-apk/app-debug.apk \
+           build/app/outputs/flutter-apk/${{ steps.version.outputs.app_name }}-${{ steps.version.outputs.date }}.apk
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.app_name }}-debug
+        path: build/app/outputs/flutter-apk/*.apk
+        retention-days: 7
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: build-${{ steps.version.outputs.date }}
+        name: Build ${{ steps.version.outputs.date }}
+        body: |
+          Automated build from commit ${{ steps.version.outputs.sha_short }}
+        files: build/app/outputs/flutter-apk/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
